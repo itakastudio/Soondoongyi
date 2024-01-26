@@ -65,7 +65,7 @@ app.post("/submit-gslink", async(req, res) => {
     const sheetLink = req.body.sheetLink.toString();
     console.log(process.env.GS_type)
     const auth = new google.auth.GoogleAuth({
-        // keyFile: "credential.json",`
+        // keyFile: "credential.json",
         credentials: {
           "type": process.env.GS_type,
           "project_id": process.env.GS_project_id,
@@ -114,30 +114,33 @@ app.post("/submit-gslink", async(req, res) => {
     
     // const sheetProperties = metaData.data.sheets[3].properties;
     // const sheetTitle = sheetProperties.title;
-    const sheetTitle = "completed raw";
+    
+    // ### 以下會處理 completed raw 資料
 
-    const sheetData = await googleSheets.spreadsheets.values.get({
+    const sheetTitleFirst = "completed p1";
+
+    const sheetDataFirst = await googleSheets.spreadsheets.values.get({
       auth,
       spreadsheetId,
-      range: `${sheetTitle}!A1:Z100`, // Adjust the range as per your needs
+      range: `${sheetTitleFirst}!A1:Z5000`, // Adjust the range as per your needs
     });
 
-    const values = sheetData.data.values;
-    console.log(values);
-    const columnTitles = values[0];
+    const valuesFirst = sheetDataFirst.data.values;
+    console.log(valuesFirst);
+    const columnTitlesFirst = valuesFirst[0];
     
-    const formattedData = values.slice(1).map((row) => {
+    const formattedDataFirst = valuesFirst.slice(1).map((row) => {
       const rowData = {};
       row.forEach((value, index) => {
-        const key = columnTitles[index]; // Use column title as the key
+        const key = columnTitlesFirst[index]; // Use column title as the key
         rowData[key.trim()] = value.trim();
       });
       return rowData;
     });
-    console.log(formattedData)
+    console.log(formattedDataFirst)
 
     try {
-      for (const row of formattedData) {
+      for (const row of formattedDataFirst) {
         const query = `
           INSERT INTO completed_raw (
             order_date, sub_order_number, sku_id, completion_date, quantity, total_cost, net_amount
@@ -147,7 +150,7 @@ app.post("/submit-gslink", async(req, res) => {
           )
         `;
         
-        const values = [
+        const valuesFirst = [
           row["Order Date"],
           row["Sub-Order Number"],
           row["SKU ID"],
@@ -157,13 +160,70 @@ app.post("/submit-gslink", async(req, res) => {
           row["Net Amount"]
         ];
         
-        await pool.query(query, values);
+        await pool.query(query, valuesFirst);
       }
 
-      console.log("Data inserted successfully");
+      console.log("(completed_raw) Data inserted successfully");
     } catch (error) {
-      console.error("Error inserting data:", error.message);
+      console.error("(completed_raw) Error inserting data:", error.message);
     }
+
+    // ### 以下會處理 xero raw 資料
+    const sheetTitleSecond = "xero p1";
+
+    const sheetDataSecond = await googleSheets.spreadsheets.values.get({
+      auth,
+      spreadsheetId,
+      range: `${sheetTitleSecond}!A1:Z5000`, // Adjust the range as per your needs
+    });
+
+    const valuesSecond = sheetDataSecond.data.values;
+    console.log(valuesSecond);
+    const columnTitlesSecond = valuesSecond[0];
+    
+    const formattedDataSecond = valuesSecond.slice(1).map((row) => {
+      const rowData = {};
+      row.forEach((value, index) => {
+        const key = columnTitlesSecond[index]; // Use column title as the key
+        rowData[key.trim()] = value.trim();
+      });
+      return rowData;
+    });
+    console.log(formattedDataSecond)
+
+    try {
+      for (const row of formattedDataSecond) {
+        const query = `
+          INSERT INTO completed_raw (
+            date_string, invoice_number, reference, total, item, code, quantity, unit_price, status, total_order_amount, total_order_qty;
+          )
+          VALUES (
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+          )
+        `;
+        
+        const valuesSecond = [
+          row.date_string,
+          row.invoice_number,
+          row.reference,
+          row.total,
+          row.item,
+          row.code,
+          row.quantity,
+          row.unit_price,
+          row.status,
+          row.total_order_amount,
+          row.total_order_qty,
+        ];
+        
+        await pool.query(query, valuesSecond);
+      }
+
+      console.log("(completed_raw) Data inserted successfully");
+    } catch (error) {
+      console.error("(completed_raw) Error inserting data:", error.message);
+    }
+
 
 //https://www.youtube.com/watch?v=PFJNJQCU_lo//
 });
