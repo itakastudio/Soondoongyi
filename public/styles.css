@@ -1,0 +1,42 @@
+body {
+    background-color: #f2e9ff;
+    font-family: Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 40vh;
+  }
+
+  h1 {
+    color: #6a5acd;
+  }
+  
+  label {
+    font-weight: bold;
+  }
+  
+  input[type="text"] {
+    width: 320px;
+    padding: 5px;
+    margin: 20px 0px;
+  }
+  
+  button {
+    background-color: #6a5acd;
+    color: #fff;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    cursor: pointer;
+  }
+  
+  p {
+    margin-top: 10px;
+    font-style: italic;
+  }
+
+  .logo-image {
+    height: 40px;
+  }
+
