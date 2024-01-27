@@ -279,7 +279,7 @@ app.post("/step2", async(req, res) => {
     await pool.query(dataProcess);
     res.render("index.ejs", { response: "Step 2: Data processing completed successfully." });
   } catch (error) {
-    console.error("(matching part)Error processing data:", error);
+    console.error("(not matched part)Error processing data:", error);
   }
   // ### 以下對比 completed_combine_check 及 xero_combine_check 
   console.log("handle matching")
@@ -296,10 +296,24 @@ app.post("/step2", async(req, res) => {
         AND xero_raw.xero_order_total_product_qty = completed_raw.completed_order_total_product_qty;
       `;
     await pool.query(dataProcess);
-    res.render("index.ejs", { response: "Step 2: Data processing completed successfully." });
   } catch (error) {
     console.error("(matching part)Error processing data:", error);
   }
+
+    // ### 以下 handle xero_raw sub_order_number 是否存在於 completed_raw
+    console.log("handle not exist order")
+    try {
+      let dataProcess = `
+        UPDATE xero_raw
+        SET matching_status = 'order_not_exist'
+        FROM completed_raw
+        WHERE xero_raw.reference NOT IN (SELECT sub_order_number FROM completed_raw);
+        `;
+      await pool.query(dataProcess);
+      res.render("index.ejs", { response: "Step 2: Data processing completed successfully." });
+    } catch (error) {
+      console.error("(not exist part)Error processing data:", error);
+    }
 });
 
 
