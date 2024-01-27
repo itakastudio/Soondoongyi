@@ -268,6 +268,19 @@ app.post("/step2", async(req, res) => {
   } catch (error) {
     console.error("(xero part)Error processing data:", error);
   }
+
+  // ### 以下先將 matching_status 設定為 "not_matched"
+  console.log("handle not_matched")
+  try {
+    let dataProcess = `
+      UPDATE xero_raw
+      SET matching_status = "not_matched";
+      `;
+    await pool.query(dataProcess);
+    res.render("index.ejs", { response: "Step 2: Data processing completed successfully." });
+  } catch (error) {
+    console.error("(matching part)Error processing data:", error);
+  }
   // ### 以下對比 completed_combine_check 及 xero_combine_check 
   console.log("handle matching")
   try {
