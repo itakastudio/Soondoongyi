@@ -142,6 +142,7 @@ app.post("/submit-gslink", async(req, res) => {
     try {
       for (const row of formattedDataFirst) {
         const query = `
+          DELETE FROM completed_raw;
           INSERT INTO completed_raw (
             order_date, sub_order_number, sku_id, completion_date, quantity, total_cost, net_amount
           )
@@ -194,34 +195,34 @@ app.post("/submit-gslink", async(req, res) => {
     try {
       for (const row of formattedDataSecond) {
         const query = `
-          INSERT INTO completed_raw (
-            date_string, invoice_number, reference, total, item, code, quantity, unit_price, status, total_order_amount, total_order_qty;
+          DELETE FROM xero_raw;
+          INSERT INTO xero_raw (
+            date_string, invoice_number, reference, total, item_code, quantity, unit_price, status, total_order_amount, total_order_qty
           )
           VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
           )
         `;
         
         const valuesSecond = [
-          row.date_string,
-          row.invoice_number,
-          row.reference,
-          row.total,
-          row.item,
-          row.code,
-          row.quantity,
-          row.unit_price,
-          row.status,
-          row.total_order_amount,
-          row.total_order_qty,
+          row.DateString,
+          row.InvoiceNumber,
+          row.Reference,
+          row.Total,
+          row["Item Code"],
+          row.Quantity,
+          row["unit price"],
+          row.Status,
+          row["total order amount"],
+          row["total order qty"]
         ];
         
         await pool.query(query, valuesSecond);
       }
 
-      console.log("(completed_raw) Data inserted successfully");
+      console.log("(xero_raw) Data inserted successfully");
     } catch (error) {
-      console.error("(completed_raw) Error inserting data:", error.message);
+      console.error("(xero_raw) Error inserting data:", error.message);
     }
 
 
