@@ -14,7 +14,6 @@ const app = express();
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.json())
@@ -27,7 +26,7 @@ const supabase = createClient(supabaseUrl, supabaseKey)
 // console.log(google);
 
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.render('index.ejs');
   });
 
 
@@ -223,6 +222,7 @@ app.post("/submit-gslink", async(req, res) => {
       }
 
       console.log("(xero_raw) Data inserted successfully");
+      res.render("index.ejs", { response: "completed order and xero order from report insert successfully" });
     } catch (error) {
       console.error("(xero_raw) Error inserting data:", error.message);
     }

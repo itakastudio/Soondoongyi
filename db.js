@@ -24,3 +24,5 @@ export default pool;
 
 // ### Import database to postgre
 // psql -U postgres -p 31227 -h monorail.proxy.rlwy.net  < railway_test.sql   
+
+// ### https://www.netguru.com/blog/how-to-dump-and-restore-postgresql-database
