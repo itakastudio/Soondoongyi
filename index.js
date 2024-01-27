@@ -115,7 +115,7 @@ app.post("/step1", async(req, res) => {
     // const sheetTitle = sheetProperties.title;
     
     // ### 以下會處理 completed raw 資料
-    
+  
     try {
       const sheetTitleFirst = "completed p1";
 
@@ -179,7 +179,6 @@ app.post("/step1", async(req, res) => {
 
     // ### 以下會處理 xero raw 資料
     const sheetTitleSecond = "xero p1";
-
     const sheetDataSecond = await googleSheets.spreadsheets.values.get({
       auth,
       spreadsheetId,
@@ -278,7 +277,7 @@ app.post("/step2", async(req, res) => {
   try {
     let dataProcess = `
       UPDATE xero_raw
-      SET matching_status = "not_matched";
+      SET matching_status = 'not_matched';
       `;
     await pool.query(dataProcess);
     res.render("index.ejs", { response: "Step 2: Data processing completed successfully." });
