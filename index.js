@@ -144,7 +144,7 @@ app.post("/submit-gslink", async(req, res) => {
       DELETE FROM xero_raw;
       DELETE FROM completed_raw;`
       await pool.query(deleteTable);
-      
+
       for (const row of formattedDataFirst) {
         const query = `
           INSERT INTO completed_raw (
@@ -202,10 +202,10 @@ app.post("/submit-gslink", async(req, res) => {
       for (const row of formattedDataSecond) {
         const query = `
           INSERT INTO xero_raw (
-            date_string, invoice_number, reference, total, item_code, quantity, unit_price, status, total_order_amount, total_order_qty
+            date_string, invoice_number, reference, total, item_code, quantity, unit_price
           )
           VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+            $1, $2, $3, $4, $5, $6, $7
           )
         `;
         
@@ -216,10 +216,7 @@ app.post("/submit-gslink", async(req, res) => {
           row.Total,
           row["Item Code"],
           row.Quantity,
-          row["unit price"],
-          row.Status,
-          row["total order amount"],
-          row["total order qty"]
+          row["unit price"]
         ];
         
         await pool.query(query, valuesSecond);
@@ -250,5 +247,4 @@ app.post("/submit-gslink", async(req, res) => {
 app.listen(process.env.PORT, () => {
   console.log(`Listening on port ${process.env.PORT}`);
 });
-
 
