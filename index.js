@@ -171,7 +171,7 @@ app.post("/step1", async(req, res) => {
         console.error("(completed_raw) Error inserting data:", error.message);
       }
     } catch(error) {
-      res.render("index.ejs", { response: `${error.message}, please open access right of google sheet` });
+      res.render("index.ejs", { response: `${error.message}` });
     }
 
 
