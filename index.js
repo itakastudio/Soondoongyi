@@ -115,7 +115,6 @@ app.post("/step1", async(req, res) => {
     // const sheetTitle = sheetProperties.title;
     
     // ### 以下會處理 completed raw 資料
-
     const sheetTitleFirst = "completed p1";
 
     const sheetDataFirst = await googleSheets.spreadsheets.values.get({
@@ -222,7 +221,7 @@ app.post("/step1", async(req, res) => {
       }
 
       console.log("(xero_raw) Data inserted successfully");
-      res.render("index.ejs", { response: "completed order and xero order from report insert successfully" });
+      res.render("index.ejs", { response: "Step 1: Completed order and XERO order from report insert successfully" });
     } catch (error) {
       console.error("(xero_raw) Error inserting data:", error.message);
     }
@@ -232,29 +231,71 @@ app.post("/step1", async(req, res) => {
 });
 
 app.post("/step2", async(req, res) => {
-  console.log(req.body)
+  // ### 以下加入 completed_raw 處理資料
+  console.log("handle completed")
   try {
     let dataProcess = `
     UPDATE completed_raw
-    SET total_order_amount = (
+    SET completed_total_order_amount = (
       SELECT SUM(total_cost)
       FROM completed_raw sub
       WHERE sub.sub_order_number = completed_raw.sub_order_number
-    );
-    UPDATE completed_raw
-    SET order_total_product_qty = (
+    ), 
+    completed_order_total_product_qty = (
       SELECT SUM(quantity)
       FROM completed_raw sub
       WHERE sub.sub_order_number = completed_raw.sub_order_number
-    );
+    ), completed_combine_check = sub_order_number || '_' || sku_id || '_' || total_cost || '_' || quantity || '_' || completed_total_order_amount || '_' || completed_order_total_product_qty;
     `
     await pool.query(dataProcess);
-    res.send("Data processing completed successfully.");
   } catch (error) {
-    console.error("Error processing data:", error);
-    res.status(500).send("An error occurred while processing the data.");
+    console.error("(completed part)Error processing data:", error);
+  }
+  // ### 以下加入 xero_raw 處理資料
+  console.log("handle xero")
+  try {
+    let dataProcess = `
+    UPDATE xero_raw
+    SET xero_total_order_amount = total, 
+    xero_order_total_product_qty = (
+      SELECT SUM(quantity)
+      FROM xero_raw sub
+      WHERE sub.reference = xero_raw.reference
+      ), 
+      xero_combine_check = reference || '_' || 'H6384001_S_' || item_code || '_' || (quantity * unit_price) || '_' || quantity || '_' || xero_total_order_amount || '_' || xero_order_total_product_qty;
+    `;
+    await pool.query(dataProcess);
+  } catch (error) {
+    console.error("(xero part)Error processing data:", error);
+  }
+  // ### 以下對比 completed_combine_check 及 xero_combine_check 
+  console.log("handle matching")
+  try {
+    let dataProcess = `
+      UPDATE xero_raw
+      SET matching_status = 'all_matched'
+      FROM completed_raw
+      WHERE xero_raw.reference = completed_raw.sub_order_number
+        AND CONCAT('H6384001_S_', xero_raw.item_code) = completed_raw.sku_id
+        AND (xero_raw.quantity * xero_raw.unit_price) = completed_raw.total_cost
+        AND xero_raw.quantity = completed_raw.quantity
+        AND xero_raw.xero_total_order_amount = completed_raw.completed_total_order_amount
+        AND xero_raw.xero_order_total_product_qty = completed_raw.completed_order_total_product_qty;
+      `;
+    await pool.query(dataProcess);
+    res.render("index.ejs", { response: "Step 2: Data processing completed successfully." });
+  } catch (error) {
+    console.error("(matching part)Error processing data:", error);
   }
 });
+
+
+// res.render("index.ejs", { response: "Step 2: Data processing completed successfully." });
+// } catch (error) {
+//   console.error("Error processing data:", error);
+//   res.render("index.ejs", { response: "An error occurred while processing the data." });
+// }
+// });
 
 
 
