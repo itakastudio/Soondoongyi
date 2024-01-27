@@ -147,10 +147,10 @@ app.post("/step1", async(req, res) => {
         for (const row of formattedDataFirst) {
           const query = `
             INSERT INTO completed_raw (
-              order_date, sub_order_number, sku_id, completion_date, quantity, total_cost, net_amount
-            )
+              order_date, sub_order_number, sku_id, completion_date, quantity, total_cost
+              )
             VALUES (
-              $1, $2, $3, $4, $5, $6, $7
+              $1, $2, $3, $4, $5, $6
             )
           `;
           
