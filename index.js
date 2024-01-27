@@ -115,61 +115,67 @@ app.post("/step1", async(req, res) => {
     // const sheetTitle = sheetProperties.title;
     
     // ### 以下會處理 completed raw 資料
-    const sheetTitleFirst = "completed p1";
-
-    const sheetDataFirst = await googleSheets.spreadsheets.values.get({
-      auth,
-      spreadsheetId,
-      range: `${sheetTitleFirst}!A1:Z5000`, // Adjust the range as per your needs
-    });
-
-    const valuesFirst = sheetDataFirst.data.values;
-    console.log(valuesFirst);
-    const columnTitlesFirst = valuesFirst[0];
     
-    const formattedDataFirst = valuesFirst.slice(1).map((row) => {
-      const rowData = {};
-      row.forEach((value, index) => {
-        const key = columnTitlesFirst[index]; // Use column title as the key
-        rowData[key.trim()] = value.trim();
-      });
-      return rowData;
-    });
-    console.log(formattedDataFirst)
-
     try {
-      let deleteTable = `
-      DELETE FROM xero_raw;
-      DELETE FROM completed_raw;`
-      await pool.query(deleteTable);
+      const sheetTitleFirst = "completed p1";
 
-      for (const row of formattedDataFirst) {
-        const query = `
-          INSERT INTO completed_raw (
-            order_date, sub_order_number, sku_id, completion_date, quantity, total_cost, net_amount
-          )
-          VALUES (
-            $1, $2, $3, $4, $5, $6, $7
-          )
-        `;
-        
-        const valuesFirst = [
-          row["Order Date"],
-          row["Sub-Order Number"],
-          row["SKU ID"],
-          row["Completion Date"],
-          row.Quantity,
-          row["Total Cost"],
-          row["Net Amount"]
-        ];
-        
-        await pool.query(query, valuesFirst);
+      const sheetDataFirst = await googleSheets.spreadsheets.values.get({
+        auth,
+        spreadsheetId,
+        range: `${sheetTitleFirst}!A1:Z5000`, // Adjust the range as per your needs
+      });
+
+      const valuesFirst = sheetDataFirst.data.values;
+      console.log(valuesFirst);
+      const columnTitlesFirst = valuesFirst[0];
+      
+      const formattedDataFirst = valuesFirst.slice(1).map((row) => {
+        const rowData = {};
+        row.forEach((value, index) => {
+          const key = columnTitlesFirst[index]; // Use column title as the key
+          rowData[key.trim()] = value.trim();
+        });
+        return rowData;
+      });
+      console.log(formattedDataFirst)
+      try {
+        let deleteTable = `
+        DELETE FROM xero_raw;
+        DELETE FROM completed_raw;`
+        await pool.query(deleteTable);
+  
+        for (const row of formattedDataFirst) {
+          const query = `
+            INSERT INTO completed_raw (
+              order_date, sub_order_number, sku_id, completion_date, quantity, total_cost, net_amount
+            )
+            VALUES (
+              $1, $2, $3, $4, $5, $6, $7
+            )
+          `;
+          
+          const valuesFirst = [
+            row["Order Date"],
+            row["Sub-Order Number"],
+            row["SKU ID"],
+            row["Completion Date"],
+            row.Quantity,
+            row["Total Cost"]
+          ];
+          
+          await pool.query(query, valuesFirst);
+        }
+  
+        console.log("(completed_raw) Data inserted successfully");
+      } catch (error) {
+        console.error("(completed_raw) Error inserting data:", error.message);
       }
-
-      console.log("(completed_raw) Data inserted successfully");
-    } catch (error) {
-      console.error("(completed_raw) Error inserting data:", error.message);
+    } catch(error) {
+      res.render("index.ejs", { response: `${error.message}, please open access right of google sheet` });
     }
+
+
+
 
     // ### 以下會處理 xero raw 資料
     const sheetTitleSecond = "xero p1";
@@ -195,8 +201,6 @@ app.post("/step1", async(req, res) => {
     console.log(formattedDataSecond)
 
     try {
-
-
       for (const row of formattedDataSecond) {
         const query = `
           INSERT INTO xero_raw (
