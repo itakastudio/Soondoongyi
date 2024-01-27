@@ -140,9 +140,13 @@ app.post("/submit-gslink", async(req, res) => {
     console.log(formattedDataFirst)
 
     try {
+      let deleteTable = `
+      DELETE FROM xero_raw;
+      DELETE FROM completed_raw;`
+      await pool.query(deleteTable);
+      
       for (const row of formattedDataFirst) {
         const query = `
-          DELETE FROM completed_raw;
           INSERT INTO completed_raw (
             order_date, sub_order_number, sku_id, completion_date, quantity, total_cost, net_amount
           )
@@ -193,9 +197,10 @@ app.post("/submit-gslink", async(req, res) => {
     console.log(formattedDataSecond)
 
     try {
+
+
       for (const row of formattedDataSecond) {
         const query = `
-          DELETE FROM xero_raw;
           INSERT INTO xero_raw (
             date_string, invoice_number, reference, total, item_code, quantity, unit_price, status, total_order_amount, total_order_qty
           )
@@ -245,4 +250,5 @@ app.post("/submit-gslink", async(req, res) => {
 app.listen(process.env.PORT, () => {
   console.log(`Listening on port ${process.env.PORT}`);
 });
+
 
