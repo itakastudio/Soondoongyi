@@ -57,7 +57,7 @@ app.post("/getdb", async (req, res) => {
 
 
 // ### 以下係直接連接 google sheet
-app.post("/submit-gslink", async(req, res) => {
+app.post("/step1", async(req, res) => {
     // Handle the click activity here
     console.log(req.body);
     
@@ -230,6 +230,32 @@ app.post("/submit-gslink", async(req, res) => {
 
 //https://www.youtube.com/watch?v=PFJNJQCU_lo//
 });
+
+app.post("/step2", async(req, res) => {
+  console.log(req.body)
+  try {
+    let dataProcess = `
+    UPDATE completed_raw
+    SET total_order_amount = (
+      SELECT SUM(total_cost)
+      FROM completed_raw sub
+      WHERE sub.sub_order_number = completed_raw.sub_order_number
+    );
+    UPDATE completed_raw
+    SET order_total_product_qty = (
+      SELECT SUM(quantity)
+      FROM completed_raw sub
+      WHERE sub.sub_order_number = completed_raw.sub_order_number
+    );
+    `
+    await pool.query(dataProcess);
+    res.send("Data processing completed successfully.");
+  } catch (error) {
+    console.error("Error processing data:", error);
+    res.status(500).send("An error occurred while processing the data.");
+  }
+});
+
 
 
 // ### 以下係直接連 supabase database
