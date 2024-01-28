@@ -251,6 +251,7 @@ app.post("/step2", async(req, res) => {
     ), completed_combine_check = sub_order_number || '_' || sku_id || '_' || total_cost || '_' || quantity || '_' || completed_total_order_amount || '_' || completed_order_total_product_qty;
     `
     await pool.query(dataProcess);
+    console.log("finished handle completed")
   } catch (error) {
     console.error("(completed part)Error processing data:", error);
   }
@@ -268,6 +269,7 @@ app.post("/step2", async(req, res) => {
       xero_combine_check = reference || '_' || 'H6384001_S_' || item_code || '_' || (quantity * unit_price) || '_' || quantity || '_' || xero_total_order_amount || '_' || xero_order_total_product_qty;
     `;
     await pool.query(dataProcess);
+    console.log("finished handle xero")
   } catch (error) {
     console.error("(xero part)Error processing data:", error);
   }
@@ -280,7 +282,7 @@ app.post("/step2", async(req, res) => {
       SET matching_status = 'not_matched';
       `;
     await pool.query(dataProcess);
-    res.render("index.ejs", { response: "Step 2: Data processing completed successfully." });
+    console.log("finished handle not_matched")
   } catch (error) {
     console.error("(not matched part)Error processing data:", error);
   }
@@ -299,24 +301,96 @@ app.post("/step2", async(req, res) => {
         AND xero_raw.xero_order_total_product_qty = completed_raw.completed_order_total_product_qty;
       `;
     await pool.query(dataProcess);
+    console.log("finished handle all_matched")
   } catch (error) {
     console.error("(matching part)Error processing data:", error);
   }
 
-    // ### 以下 handle xero_raw sub_order_number 是否存在於 completed_raw
-    console.log("handle not exist order")
+  // ### 以下 handle xero_raw sub_order_number 是否存在於 completed_raw
+  console.log("handle not exist order")
+  try {
+    let dataProcess = `
+      UPDATE xero_raw
+      SET matching_status = 'order_not_exist'
+      FROM completed_raw
+      WHERE xero_raw.reference NOT IN (SELECT sub_order_number FROM completed_raw);
+      `;
+    await pool.query(dataProcess);
+    console.log("finished handle order_not_exist")
+  } catch (error) {
+    console.error("(not exist part)Error processing data:", error);
+  }
+  
+  // ### 以下 handle 兩張表內，一張訂單內的個別 sku 的數量、總價要一致
+  console.log("handle product in the same order")
+  try {
+    let dataProcess = `
+      UPDATE xero_raw AS x
+      SET matching_status = 'product_matched'
+      WHERE matching_status = 'not_matched'
+      AND (
+        SELECT CAST(SUM(quantity * unit_price) AS numeric(10,1))
+        FROM xero_raw
+        WHERE reference = x.reference
+        AND item_code = x.item_code
+      ) = (
+        SELECT CAST(SUM(total_cost) AS numeric(10,1))
+        FROM completed_raw
+        WHERE sub_order_number = x.reference
+        AND sku_id = CONCAT('H6384001_S_', x.item_code)
+      )
+      AND (
+        SELECT SUM(quantity)
+        FROM xero_raw
+        WHERE reference = x.reference
+        AND item_code = x.item_code
+      ) = (
+        SELECT SUM(quantity)
+        FROM completed_raw
+        WHERE sub_order_number = x.reference
+        AND sku_id = CONCAT('H6384001_S_', x.item_code)
+      );
+      `;
+    await pool.query(dataProcess);
+    console.log("finished handle product in the same order")
+  } catch (error) {
+    console.error("(not exist part)Error processing data:", error);
+  };
+
+    // ### 以下 handle 兩張表內，整張訂單的所有 sku 的總數量、總價要一致
+    console.log("handle the whole order")
     try {
       let dataProcess = `
-        UPDATE xero_raw
-        SET matching_status = 'order_not_exist'
-        FROM completed_raw
-        WHERE xero_raw.reference NOT IN (SELECT sub_order_number FROM completed_raw);
+        UPDATE xero_raw AS x
+        SET matching_status = 'order_total_matched'
+        WHERE matching_status = 'product_matched'
+        AND (
+          SELECT CAST(SUM(quantity * unit_price) AS numeric(10,1))
+          FROM xero_raw
+          WHERE reference = x.reference
+        ) = (
+          SELECT CAST(SUM(total_cost) AS numeric(10,1))
+          FROM completed_raw
+          WHERE sub_order_number = x.reference
+        )
+        AND (
+          SELECT SUM(quantity)
+          FROM xero_raw
+          WHERE reference = x.reference
+        ) = (
+          SELECT SUM(quantity)
+          FROM completed_raw
+          WHERE sub_order_number = x.reference
+        );
         `;
       await pool.query(dataProcess);
+      console.log("finished handle the whole order")
       res.render("index.ejs", { response: "Step 2: Data processing completed successfully." });
     } catch (error) {
       console.error("(not exist part)Error processing data:", error);
     }
+  
+
 });
 
 
@@ -328,6 +402,23 @@ app.post("/step2", async(req, res) => {
 // });
 
 
+
+// app.post("/step3", async (req, res) => {
+//   console.log(req.body)
+//   const sendSSE = (message) => {
+//     res.write(`data: ${message}\n\n`); // Send SSE message to the client
+//   };
+
+//   // Set response headers for SSE
+//   res.setHeader("Content-Type", "text/event-stream");
+//   res.setHeader("Cache-Control", "no-cache");
+//   res.setHeader("Connection", "keep-alive");
+//   res.setHeader("Transfer-Encoding", "chunked");
+
+//   // Flush headers to establish SSE connection
+//   res.flushHeaders();
+//   sendSSE(`Hello ChatGPT`);
+// });
 
 // ### 以下係直接連 supabase database
     // const { data, error } = await supabase.rpc('hello');

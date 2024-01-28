@@ -34,21 +34,32 @@
             </div>
           </div>
         </div>
+        
+        
+        <h1 id="testinging">I want to change this</h1>
+
         <% if (locals.response) { %>
-        <!-- <div class="container"> -->
-          <!-- <div class="row">
-            <div class="col"> -->
               <p id="step1Status"><%= response %></p>
-            <!-- </div>
-          </div> -->
           <% } else {%>
             <p> Please paste google sheet link and process step 1 first</p>
             <p> 確保權限已開放為 editable</p>
             <p> completed p1 的 Quantity 不能有小數點，Total Cost 為 Plain Text 加 2 decimal places</p>
             <p> xero p1 的 Quantity 不能有小數點，unit price 為 Plain Text 加 2 decimal places</p>
-            <p> completed p1 及 xero p1 為純粹資訊，月份間的 subtotal 等等資訊不需要</p>
+            <p> completed p1 及 xero p1 為純粹訂單資料，月份間的 subtotal 等等資訊請刪去</p>
             <% } %>
-        <!-- </div> -->
+
+
+              <!-- eventSource.addEventListener("error", (error) => {
+                // Handle SSE error
+                console.error("SSE error:", error);
+              });
+            
+              eventSource.addEventListener("end", () => {
+                // Handle SSE connection ended
+                console.log("SSE connection ended");
+              });
+            </script> -->
+       
         <div class="row">
           <div class="col">
             <div class="d-grid gap-2">
@@ -70,18 +81,27 @@
       </form>
       </div>
 
+    <!-- <script src="script.js"></script> -->
+    <script src="index.js" charset="utf-8"></script>
 
 
-      <div class="row">
-        <div class="col">
-          <p id="step1Status"></p>
-          <p id="step2Status"></p>
-          <p id="step3Status"></p>
-          <p id="step4Status"></p>
-        </div>
-      </div>
-    </div>
+    <!-- <script>
+      const eventSource = new EventSource("/step3");
 
-    <script src="script.js"></script>
+      eventSource.addEventListener("message", (event) => {
+        const message = event.data;
+        console.log(message);
+        document.getElementById("testinging").textContent = message;
+      });
+
+      eventSource.addEventListener("error", (error) => {
+        console.error("SSE error:", error);
+      });
+
+      eventSource.addEventListener("end", () => {
+        console.log("SSE connection ended");
+      });
+    </script> -->
+
   </body>
 </html>
