@@ -9,6 +9,7 @@ import { dirname } from "path";
 import { fileURLToPath } from "url";
 import { createClient } from "@supabase/supabase-js";
 import { google } from "googleapis";
+import {step1} from "./route/step1.js"
 
 const app = express();
 
@@ -29,14 +30,16 @@ app.get("/", (req, res) => {
   res.render("index.ejs");
 });
 
-// ### 以下係直接連接 railway 的 postgre database
-app.post("/getdb", async (req, res) => {
-  console.log(req.body);
-  const { rows: posts } = await pool.query("SELECT * FROM alan;");
-  console.log(posts);
+// // ### 以下係直接連接 railway 的 postgre database
+// app.post("/getdb", async (req, res) => {
+//   console.log(req.body);
+//   const { rows: posts } = await pool.query("SELECT * FROM alan;");
+//   console.log(posts);
 
-  res.send({ posts });
-});
+//   res.send({ posts });
+// });
+
+
 
 // ### 以下係用 webhook 將 google sheet link send 去 n8n webhook，然後 n8n 會取得 gs 及加入 supabase 入面
 // app.post("/submit-gslink", async(req, res) => {
@@ -53,169 +56,172 @@ app.post("/getdb", async (req, res) => {
 //       }
 // });
 
-// ### 以下係直接連接 google sheet
-app.post("/step1", async (req, res) => {
-  // Handle the click activity here
-  console.log(req.body);
-  const sheetLink = req.body.sheetLink.toString();
-  console.log(process.env.GS_type);
-  const auth = new google.auth.GoogleAuth({
-    // keyFile: "credential.json",
-    credentials: {
-      type: process.env.GS_type,
-      project_id: process.env.GS_project_id,
-      private_key_id: process.env.GS_private_key_id,
-      private_key: process.env.GS_private_key,
-      client_email: process.env.GS_client_email,
-      client_id: process.env.GS_client_id,
-      auth_uri: process.env.GS_auth_uri,
-      token_uri: process.env.GS_token_uri,
-      auth_provider_x509_cert_url: process.env.GS_auth_provider_x509_cert_url,
-      client_x509_cert_url: process.env.GS_client_x509_cert_url,
-      universe_domain: process.env.GS_universe_domain,
-    },
-    scopes: "https://www.googleapis.com/auth/spreadsheets",
-  });
+app.use("/step1", step1);
 
-  // console.log(auth)
 
-  const client = await auth.getClient();
-  // console.log(client)
+// // ### 以下係直接連接 google sheet
+// app.post("/step1", async (req, res) => {
+//   // Handle the click activity here
+//   console.log(req.body);
+//   const sheetLink = req.body.sheetLink.toString();
+//   console.log(process.env.GS_type);
+//   const auth = new google.auth.GoogleAuth({
+//     // keyFile: "credential.json",
+//     credentials: {
+//       type: process.env.GS_type,
+//       project_id: process.env.GS_project_id,
+//       private_key_id: process.env.GS_private_key_id,
+//       private_key: process.env.GS_private_key,
+//       client_email: process.env.GS_client_email,
+//       client_id: process.env.GS_client_id,
+//       auth_uri: process.env.GS_auth_uri,
+//       token_uri: process.env.GS_token_uri,
+//       auth_provider_x509_cert_url: process.env.GS_auth_provider_x509_cert_url,
+//       client_x509_cert_url: process.env.GS_client_x509_cert_url,
+//       universe_domain: process.env.GS_universe_domain,
+//     },
+//     scopes: "https://www.googleapis.com/auth/spreadsheets",
+//   });
 
-  const googleSheets = google.sheets({ version: "v4", auth: client });
-  // console.log(googleSheets)
+//   // console.log(auth)
 
-  // ### 抽取 google sheet id ###
-  function extractSpreadsheetId(url) {
-    const startIndex = url.indexOf("/d/") + 3; // Add 3 to skip "/d/"
-    const endIndex = url.indexOf("/edit");
+//   const client = await auth.getClient();
+//   // console.log(client)
 
-    if (startIndex !== -1 && endIndex !== -1 && startIndex < endIndex) {
-      return url.substring(startIndex, endIndex);
-    }
-    return null; // Return null if the url format is not as expected
-  }
+//   const googleSheets = google.sheets({ version: "v4", auth: client });
+//   // console.log(googleSheets)
 
-  const spreadsheetId = extractSpreadsheetId(sheetLink);
-  console.log(spreadsheetId);
+//   // ### 抽取 google sheet id ###
+//   function extractSpreadsheetId(url) {
+//     const startIndex = url.indexOf("/d/") + 3; // Add 3 to skip "/d/"
+//     const endIndex = url.indexOf("/edit");
 
-  // ### 以下會處理 completed raw 資料
+//     if (startIndex !== -1 && endIndex !== -1 && startIndex < endIndex) {
+//       return url.substring(startIndex, endIndex);
+//     }
+//     return null; // Return null if the url format is not as expected
+//   }
 
-  try {
-    const sheetTitleFirst = "completed p1";
+//   const spreadsheetId = extractSpreadsheetId(sheetLink);
+//   console.log(spreadsheetId);
 
-    const sheetDataFirst = await googleSheets.spreadsheets.values.get({
-      auth,
-      spreadsheetId,
-      range: `${sheetTitleFirst}!A1:Z5000`, // Adjust the range as per your needs
-    });
+//   // ### 以下會處理 completed raw 資料
 
-    const valuesFirst = sheetDataFirst.data.values;
-    console.log(valuesFirst);
-    const columnTitlesFirst = valuesFirst[0];
+//   try {
+//     const sheetTitleFirst = "completed p1";
 
-    const formattedDataFirst = valuesFirst.slice(1).map((row) => {
-      const rowData = {};
-      row.forEach((value, index) => {
-        const key = columnTitlesFirst[index]; // Use column title as the key
-        rowData[key.trim()] = value.trim();
-      });
-      return rowData;
-    });
-    console.log(formattedDataFirst);
-    try {
-      let deleteTable = `
-        DELETE FROM xero_raw;
-        DELETE FROM completed_raw;`;
-      await pool.query(deleteTable);
+//     const sheetDataFirst = await googleSheets.spreadsheets.values.get({
+//       auth,
+//       spreadsheetId,
+//       range: `${sheetTitleFirst}!A1:Z5000`, // Adjust the range as per your needs
+//     });
 
-      for (const row of formattedDataFirst) {
-        const query = `
-            INSERT INTO completed_raw (
-              order_date, sub_order_number, sku_id, completion_date, quantity, total_cost
-              )
-            VALUES (
-              $1, $2, $3, $4, $5, $6
-            )
-          `;
+//     const valuesFirst = sheetDataFirst.data.values;
+//     console.log(valuesFirst);
+//     const columnTitlesFirst = valuesFirst[0];
 
-        const valuesFirst = [
-          row["Order Date"],
-          row["Sub-Order Number"],
-          row["SKU ID"],
-          row["Completion Date"],
-          row.Quantity,
-          row["Total Cost"],
-        ];
+//     const formattedDataFirst = valuesFirst.slice(1).map((row) => {
+//       const rowData = {};
+//       row.forEach((value, index) => {
+//         const key = columnTitlesFirst[index]; // Use column title as the key
+//         rowData[key.trim()] = value.trim();
+//       });
+//       return rowData;
+//     });
+//     console.log(formattedDataFirst);
+//     try {
+//       let deleteTable = `
+//         DELETE FROM xero_raw;
+//         DELETE FROM completed_raw;`;
+//       await pool.query(deleteTable);
 
-        await pool.query(query, valuesFirst);
-      }
+//       for (const row of formattedDataFirst) {
+//         const query = `
+//             INSERT INTO completed_raw (
+//               order_date, sub_order_number, sku_id, completion_date, quantity, total_cost
+//               )
+//             VALUES (
+//               $1, $2, $3, $4, $5, $6
+//             )
+//           `;
 
-      console.log("(completed_raw) Data inserted successfully");
-    } catch (error) {
-      console.error("(completed_raw) Error inserting data:", error.message);
-    }
-  } catch (error) {
-    res.render("index.ejs", { response: `${error.message}` });
-  }
+//         const valuesFirst = [
+//           row["Order Date"],
+//           row["Sub-Order Number"],
+//           row["SKU ID"],
+//           row["Completion Date"],
+//           row.Quantity,
+//           row["Total Cost"],
+//         ];
 
-  // ### 以下會處理 xero raw 資料
-  const sheetTitleSecond = "xero p1";
-  const sheetDataSecond = await googleSheets.spreadsheets.values.get({
-    auth,
-    spreadsheetId,
-    range: `${sheetTitleSecond}!A1:Z5000`, // Adjust the range as per your needs
-  });
+//         await pool.query(query, valuesFirst);
+//       }
 
-  const valuesSecond = sheetDataSecond.data.values;
-  console.log(valuesSecond);
-  const columnTitlesSecond = valuesSecond[0];
+//       console.log("(completed_raw) Data inserted successfully");
+//     } catch (error) {
+//       console.error("(completed_raw) Error inserting data:", error.message);
+//     }
+//   } catch (error) {
+//     res.render("index.ejs", { response: `${error.message}` });
+//   }
 
-  const formattedDataSecond = valuesSecond.slice(1).map((row) => {
-    const rowData = {};
-    row.forEach((value, index) => {
-      const key = columnTitlesSecond[index]; // Use column title as the key
-      rowData[key.trim()] = value.trim();
-    });
-    return rowData;
-  });
-  console.log(formattedDataSecond);
+//   // ### 以下會處理 xero raw 資料
+//   const sheetTitleSecond = "xero p1";
+//   const sheetDataSecond = await googleSheets.spreadsheets.values.get({
+//     auth,
+//     spreadsheetId,
+//     range: `${sheetTitleSecond}!A1:Z5000`, // Adjust the range as per your needs
+//   });
 
-  try {
-    for (const row of formattedDataSecond) {
-      const query = `
-          INSERT INTO xero_raw (
-            date_string, invoice_number, reference, total, item_code, quantity, unit_price
-          )
-          VALUES (
-            $1, $2, $3, $4, $5, $6, $7
-          )
-        `;
+//   const valuesSecond = sheetDataSecond.data.values;
+//   console.log(valuesSecond);
+//   const columnTitlesSecond = valuesSecond[0];
 
-      const valuesSecond = [
-        row.DateString,
-        row.InvoiceNumber,
-        row.Reference,
-        row.Total,
-        row["Item Code"],
-        row.Quantity,
-        row["unit price"]
-      ];
+//   const formattedDataSecond = valuesSecond.slice(1).map((row) => {
+//     const rowData = {};
+//     row.forEach((value, index) => {
+//       const key = columnTitlesSecond[index]; // Use column title as the key
+//       rowData[key.trim()] = value.trim();
+//     });
+//     return rowData;
+//   });
+//   console.log(formattedDataSecond);
 
-      await pool.query(query, valuesSecond);
-    }
+//   try {
+//     for (const row of formattedDataSecond) {
+//       const query = `
+//           INSERT INTO xero_raw (
+//             date_string, invoice_number, reference, total, item_code, quantity, unit_price
+//           )
+//           VALUES (
+//             $1, $2, $3, $4, $5, $6, $7
+//           )
+//         `;
 
-    console.log("(xero_raw) Data inserted successfully");
-    res.render("index.ejs", {
-      response:
-        "Step 1: Completed order and XERO order from report insert successfully",
-    });
-  } catch (error) {
-    console.error("(xero_raw) Error inserting data:", error.message);
-  }
+//       const valuesSecond = [
+//         row.DateString,
+//         row.InvoiceNumber,
+//         row.Reference,
+//         row.Total,
+//         row["Item Code"],
+//         row.Quantity,
+//         row["unit price"]
+//       ];
 
-  //https://www.youtube.com/watch?v=PFJNJQCU_lo//
-});
+//       await pool.query(query, valuesSecond);
+//     }
+
+//     console.log("(xero_raw) Data inserted successfully");
+//     res.render("index.ejs", {
+//       response:
+//         "Step 1: Completed order and XERO order from report insert successfully",
+//     });
+//   } catch (error) {
+//     console.error("(xero_raw) Error inserting data:", error.message);
+//   }
+
+//   //https://www.youtube.com/watch?v=PFJNJQCU_lo//
+// });
 
 app.post("/step2", async (req, res) => {
   // ### 以下加入 completed_raw 處理資料
@@ -576,3 +582,7 @@ app.post("/step3", async (req, res) => {
 app.listen(process.env.PORT, () => {
   console.log(`Listening on port ${process.env.PORT}`);
 });
+
+
+
+// AJAX
