@@ -10,6 +10,9 @@ import { fileURLToPath } from "url";
 import { createClient } from "@supabase/supabase-js";
 import { google } from "googleapis";
 import {step1} from "./route/step1.js"
+import {step2} from "./route/step2.js"
+import {step3} from "./route/step3.js"
+
 
 const app = express();
 
@@ -39,8 +42,6 @@ app.get("/", (req, res) => {
 //   res.send({ posts });
 // });
 
-
-
 // ### 以下係用 webhook 將 google sheet link send 去 n8n webhook，然後 n8n 會取得 gs 及加入 supabase 入面
 // app.post("/submit-gslink", async(req, res) => {
 //     console.log(req.body)
@@ -57,9 +58,14 @@ app.get("/", (req, res) => {
 // });
 
 app.use("/step1", step1);
+app.use("/step2", step2);
+app.use("/step3", step3);
 
 
-// // ### 以下係直接連接 google sheet
+
+
+
+// ### 以下係直接連接 google sheet
 // app.post("/step1", async (req, res) => {
 //   // Handle the click activity here
 //   console.log(req.body);
@@ -223,326 +229,328 @@ app.use("/step1", step1);
 //   //https://www.youtube.com/watch?v=PFJNJQCU_lo//
 // });
 
-app.post("/step2", async (req, res) => {
-  // ### 以下加入 completed_raw 處理資料
-  console.log("handle completed");
-  try {
-    let dataProcess = `
-    UPDATE completed_raw
-    SET completed_total_order_amount = (
-      SELECT SUM(total_cost)
-      FROM completed_raw sub
-      WHERE sub.sub_order_number = completed_raw.sub_order_number
-    ), 
-    completed_order_total_product_qty = (
-      SELECT SUM(quantity)
-      FROM completed_raw sub
-      WHERE sub.sub_order_number = completed_raw.sub_order_number
-    ), completed_combine_check = sub_order_number || '_' || sku_id || '_' || total_cost || '_' || quantity || '_' || completed_total_order_amount || '_' || completed_order_total_product_qty;
-    `;
-    await pool.query(dataProcess);
-    console.log("finished handle completed");
-  } catch (error) {
-    console.error("(completed part)Error processing data:", error);
-  }
-  // ### 以下加入 xero_raw 處理資料
-  console.log("handle xero");
-  try {
-    let dataProcess = `
-    UPDATE xero_raw
-    SET xero_total_order_amount = total, 
-    xero_order_total_product_qty = (
-      SELECT SUM(quantity)
-      FROM xero_raw sub
-      WHERE sub.reference = xero_raw.reference
-      ), 
-      xero_combine_check = reference || '_' || 'H6384001_S_' || item_code || '_' || (quantity * unit_price) || '_' || quantity || '_' || xero_total_order_amount || '_' || xero_order_total_product_qty;
-    `;
-    await pool.query(dataProcess);
-    console.log("finished handle xero");
-  } catch (error) {
-    console.error("(xero part)Error processing data:", error);
-  }
+// app.post("/step2", async (req, res) => {
+//   // ### 以下加入 completed_raw 處理資料
+//   console.log("handle completed");
+//   try {
+//     let dataProcess = `
+//     UPDATE completed_raw
+//     SET completed_total_order_amount = (
+//       SELECT SUM(total_cost)
+//       FROM completed_raw sub
+//       WHERE sub.sub_order_number = completed_raw.sub_order_number
+//     ), 
+//     completed_order_total_product_qty = (
+//       SELECT SUM(quantity)
+//       FROM completed_raw sub
+//       WHERE sub.sub_order_number = completed_raw.sub_order_number
+//     ), completed_combine_check = sub_order_number || '_' || sku_id || '_' || total_cost || '_' || quantity || '_' || completed_total_order_amount || '_' || completed_order_total_product_qty;
+//     `;
+//     await pool.query(dataProcess);
+//     console.log("finished handle completed");
+//   } catch (error) {
+//     console.error("(completed part)Error processing data:", error);
+//   }
+//   // ### 以下加入 xero_raw 處理資料
+//   console.log("handle xero");
+//   try {
+//     let dataProcess = `
+//     UPDATE xero_raw
+//     SET xero_total_order_amount = total, 
+//     xero_order_total_product_qty = (
+//       SELECT SUM(quantity)
+//       FROM xero_raw sub
+//       WHERE sub.reference = xero_raw.reference
+//       ), 
+//       xero_combine_check = reference || '_' || 'H6384001_S_' || item_code || '_' || (quantity * unit_price) || '_' || quantity || '_' || xero_total_order_amount || '_' || xero_order_total_product_qty;
+//     `;
+//     await pool.query(dataProcess);
+//     console.log("finished handle xero");
+//   } catch (error) {
+//     console.error("(xero part)Error processing data:", error);
+//   }
 
-  // ### 以下先將 matching_status 設定為 "not_matched"
-  console.log("handle not_matched");
-  try {
-    let dataProcess = `
-      UPDATE xero_raw
-      SET matching_status = 'not_matched';
-      `;
-    await pool.query(dataProcess);
-    console.log("finished handle not_matched");
-  } catch (error) {
-    console.error("(not matched part)Error processing data:", error);
-  }
-  // ### 以下對比 completed_combine_check 及 xero_combine_check
-  console.log("handle matching");
-  try {
-    let dataProcess = `
-      UPDATE xero_raw
-      SET matching_status = 'all_matched'
-      FROM completed_raw
-      WHERE xero_raw.reference = completed_raw.sub_order_number
-        AND CONCAT('H6384001_S_', xero_raw.item_code) = completed_raw.sku_id
-        AND (xero_raw.quantity * xero_raw.unit_price) = completed_raw.total_cost
-        AND xero_raw.quantity = completed_raw.quantity
-        AND xero_raw.xero_total_order_amount = completed_raw.completed_total_order_amount
-        AND xero_raw.xero_order_total_product_qty = completed_raw.completed_order_total_product_qty;
-      `;
-    await pool.query(dataProcess);
-    console.log("finished handle all_matched");
-  } catch (error) {
-    console.error("(matching part)Error processing data:", error);
-  }
+//   // ### 以下先將 matching_status 設定為 "not_matched"
+//   console.log("handle not_matched");
+//   try {
+//     let dataProcess = `
+//       UPDATE xero_raw
+//       SET matching_status = 'not_matched';
+//       `;
+//     await pool.query(dataProcess);
+//     console.log("finished handle not_matched");
+//   } catch (error) {
+//     console.error("(not matched part)Error processing data:", error);
+//   }
+//   // ### 以下對比 completed_combine_check 及 xero_combine_check
+//   console.log("handle matching");
+//   try {
+//     let dataProcess = `
+//       UPDATE xero_raw
+//       SET matching_status = 'all_matched'
+//       FROM completed_raw
+//       WHERE xero_raw.reference = completed_raw.sub_order_number
+//         AND CONCAT('H6384001_S_', xero_raw.item_code) = completed_raw.sku_id
+//         AND (xero_raw.quantity * xero_raw.unit_price) = completed_raw.total_cost
+//         AND xero_raw.quantity = completed_raw.quantity
+//         AND xero_raw.xero_total_order_amount = completed_raw.completed_total_order_amount
+//         AND xero_raw.xero_order_total_product_qty = completed_raw.completed_order_total_product_qty;
+//       `;
+//     await pool.query(dataProcess);
+//     console.log("finished handle all_matched");
+//   } catch (error) {
+//     console.error("(matching part)Error processing data:", error);
+//   }
 
-  // ### 以下 handle xero_raw sub_order_number 是否存在於 completed_raw
-  console.log("handle not exist order");
-  try {
-    let dataProcess = `
-      UPDATE xero_raw
-      SET matching_status = 'order_not_exist'
-      FROM completed_raw
-      WHERE xero_raw.reference NOT IN (SELECT sub_order_number FROM completed_raw);
-      `;
-    await pool.query(dataProcess);
-    console.log("finished handle order_not_exist");
-  } catch (error) {
-    console.error("(not exist part)Error processing data:", error);
-  }
+//   // ### 以下 handle xero_raw sub_order_number 是否存在於 completed_raw
+//   console.log("handle not exist order");
+//   try {
+//     let dataProcess = `
+//       UPDATE xero_raw
+//       SET matching_status = 'order_not_exist'
+//       FROM completed_raw
+//       WHERE xero_raw.reference NOT IN (SELECT sub_order_number FROM completed_raw);
+//       `;
+//     await pool.query(dataProcess);
+//     console.log("finished handle order_not_exist");
+//   } catch (error) {
+//     console.error("(not exist part)Error processing data:", error);
+//   }
 
-  // ### 以下 handle 兩張表內，一張訂單內的個別 sku 的數量、總價要一致
-  console.log("handle product in the same order");
-  try {
-    let dataProcess = `
-      UPDATE xero_raw AS x
-      SET matching_status = 'product_matched'
-      WHERE matching_status = 'not_matched'
-      AND (
-        SELECT CAST(SUM(quantity * unit_price) AS numeric(10,1))
-        FROM xero_raw
-        WHERE reference = x.reference
-        AND item_code = x.item_code
-      ) = (
-        SELECT CAST(SUM(total_cost) AS numeric(10,1))
-        FROM completed_raw
-        WHERE sub_order_number = x.reference
-        AND sku_id = CONCAT('H6384001_S_', x.item_code)
-      )
-      AND (
-        SELECT SUM(quantity)
-        FROM xero_raw
-        WHERE reference = x.reference
-        AND item_code = x.item_code
-      ) = (
-        SELECT SUM(quantity)
-        FROM completed_raw
-        WHERE sub_order_number = x.reference
-        AND sku_id = CONCAT('H6384001_S_', x.item_code)
-      );
-      `;
-    await pool.query(dataProcess);
-    console.log("finished handle product in the same order");
-  } catch (error) {
-    console.error("(not exist part)Error processing data:", error);
-  }
+//   // ### 以下 handle 兩張表內，一張訂單內的個別 sku 的數量、總價要一致
+//   console.log("handle product in the same order");
+//   try {
+//     let dataProcess = `
+//       UPDATE xero_raw AS x
+//       SET matching_status = 'product_matched'
+//       WHERE matching_status = 'not_matched'
+//       AND (
+//         SELECT CAST(SUM(quantity * unit_price) AS numeric(10,1))
+//         FROM xero_raw
+//         WHERE reference = x.reference
+//         AND item_code = x.item_code
+//       ) = (
+//         SELECT CAST(SUM(total_cost) AS numeric(10,1))
+//         FROM completed_raw
+//         WHERE sub_order_number = x.reference
+//         AND sku_id = CONCAT('H6384001_S_', x.item_code)
+//       )
+//       AND (
+//         SELECT SUM(quantity)
+//         FROM xero_raw
+//         WHERE reference = x.reference
+//         AND item_code = x.item_code
+//       ) = (
+//         SELECT SUM(quantity)
+//         FROM completed_raw
+//         WHERE sub_order_number = x.reference
+//         AND sku_id = CONCAT('H6384001_S_', x.item_code)
+//       );
+//       `;
+//     await pool.query(dataProcess);
+//     console.log("finished handle product in the same order");
+//   } catch (error) {
+//     console.error("(not exist part)Error processing data:", error);
+//   }
 
-  // ### 以下 handle 兩張表內，整張訂單的所有 sku 的總數量、總價要一致
-  console.log("handle the whole order");
-  try {
-    let dataProcess = `
-        UPDATE xero_raw AS x
-        SET matching_status = 'order_total_matched'
-        WHERE matching_status = 'product_matched'
-        AND (
-          SELECT CAST(SUM(quantity * unit_price) AS numeric(10,1))
-          FROM xero_raw
-          WHERE reference = x.reference
-        ) = (
-          SELECT CAST(SUM(total_cost) AS numeric(10,1))
-          FROM completed_raw
-          WHERE sub_order_number = x.reference
-        )
-        AND (
-          SELECT SUM(quantity)
-          FROM xero_raw
-          WHERE reference = x.reference
-        ) = (
-          SELECT SUM(quantity)
-          FROM completed_raw
-          WHERE sub_order_number = x.reference
-        );
-        `;
-    await pool.query(dataProcess);
-    console.log("finished handle the whole order");
-    res.render("index.ejs", {
-      response: "Step 2: Data processing completed successfully.",
-    });
-  } catch (error) {
-    console.error("(not exist part)Error processing data:", error);
-  }
-});
-
-
-app.post("/step3", async (req, res) => {
-  console.log(req.body);
-  const sheetLink = req.body.sheetLink.toString();
-  console.log(process.env.GS_type);
-  const auth = new google.auth.GoogleAuth({
-    // keyFile: "credential.json",
-    credentials: {
-      type: process.env.GS_type,
-      project_id: process.env.GS_project_id,
-      private_key_id: process.env.GS_private_key_id,
-      private_key: process.env.GS_private_key,
-      client_email: process.env.GS_client_email,
-      client_id: process.env.GS_client_id,
-      auth_uri: process.env.GS_auth_uri,
-      token_uri: process.env.GS_token_uri,
-      auth_provider_x509_cert_url: process.env.GS_auth_provider_x509_cert_url,
-      client_x509_cert_url: process.env.GS_client_x509_cert_url,
-      universe_domain: process.env.GS_universe_domain,
-    },
-    scopes: "https://www.googleapis.com/auth/spreadsheets",
-  });
-
-  // console.log(auth)
-
-  const client = await auth.getClient();
-  // console.log(client)
-
-  const googleSheets = google.sheets({ version: "v4", auth: client });
-  // console.log(googleSheets)
-
-  // ### 抽取 google sheet id ###
-  function extractSpreadsheetId(url) {
-    const startIndex = url.indexOf("/d/") + 3; // Add 3 to skip "/d/"
-    const endIndex = url.indexOf("/edit");
-
-    if (startIndex !== -1 && endIndex !== -1 && startIndex < endIndex) {
-      return url.substring(startIndex, endIndex);
-    }
-    return null; // Return null if the url format is not as expected
-  }
-
-  const spreadsheetId = extractSpreadsheetId(sheetLink);
-  console.log(spreadsheetId);
+//   // ### 以下 handle 兩張表內，整張訂單的所有 sku 的總數量、總價要一致
+//   console.log("handle the whole order");
+//   try {
+//     let dataProcess = `
+//         UPDATE xero_raw AS x
+//         SET matching_status = 'order_total_matched'
+//         WHERE matching_status = 'product_matched'
+//         AND (
+//           SELECT CAST(SUM(quantity * unit_price) AS numeric(10,1))
+//           FROM xero_raw
+//           WHERE reference = x.reference
+//         ) = (
+//           SELECT CAST(SUM(total_cost) AS numeric(10,1))
+//           FROM completed_raw
+//           WHERE sub_order_number = x.reference
+//         )
+//         AND (
+//           SELECT SUM(quantity)
+//           FROM xero_raw
+//           WHERE reference = x.reference
+//         ) = (
+//           SELECT SUM(quantity)
+//           FROM completed_raw
+//           WHERE sub_order_number = x.reference
+//         );
+//         `;
+//     await pool.query(dataProcess);
+//     console.log("finished handle the whole order");
+//     res.render("index.ejs", {
+//       response: "Step 2: Data processing completed successfully.",
+//     });
+//   } catch (error) {
+//     console.error("(not exist part)Error processing data:", error);
+//   }
+// });
 
 
-  const googleSheetRange = 'xero p1!C:C'; // Specify the range that includes column A and column B in the Google Sheet
 
-  const dbQuery = 'SELECT reference, matching_status FROM xero_raw'; // Replace with your actual table name and column names
+// // ### 以下將 database 內 matching result 加回 google sheet
+// app.post("/step3", async (req, res) => {
+//   console.log(req.body);
+//   const sheetLink = req.body.sheetLink.toString();
+//   console.log(process.env.GS_type);
+//   const auth = new google.auth.GoogleAuth({
+//     // keyFile: "credential.json",
+//     credentials: {
+//       type: process.env.GS_type,
+//       project_id: process.env.GS_project_id,
+//       private_key_id: process.env.GS_private_key_id,
+//       private_key: process.env.GS_private_key,
+//       client_email: process.env.GS_client_email,
+//       client_id: process.env.GS_client_id,
+//       auth_uri: process.env.GS_auth_uri,
+//       token_uri: process.env.GS_token_uri,
+//       auth_provider_x509_cert_url: process.env.GS_auth_provider_x509_cert_url,
+//       client_x509_cert_url: process.env.GS_client_x509_cert_url,
+//       universe_domain: process.env.GS_universe_domain,
+//     },
+//     scopes: "https://www.googleapis.com/auth/spreadsheets",
+//   });
 
-  try {
-    // Retrieve values from column A and column B in the Google Sheet
-    const response = await googleSheets.spreadsheets.values.get({
-      auth,
-      spreadsheetId,
-      range: googleSheetRange,
-    });
+//   // console.log(auth)
+
+//   const client = await auth.getClient();
+//   // console.log(client)
+
+//   const googleSheets = google.sheets({ version: "v4", auth: client });
+//   // console.log(googleSheets)
+
+//   // ### 抽取 google sheet id ###
+//   function extractSpreadsheetId(url) {
+//     const startIndex = url.indexOf("/d/") + 3; // Add 3 to skip "/d/"
+//     const endIndex = url.indexOf("/edit");
+
+//     if (startIndex !== -1 && endIndex !== -1 && startIndex < endIndex) {
+//       return url.substring(startIndex, endIndex);
+//     }
+//     return null; // Return null if the url format is not as expected
+//   }
+
+//   const spreadsheetId = extractSpreadsheetId(sheetLink);
+//   console.log(spreadsheetId);
+
+
+//   const googleSheetRange = 'xero p1!C:C'; // Specify the range that includes column A and column B in the Google Sheet
+
+//   const dbQuery = 'SELECT reference, matching_status FROM xero_raw'; // Replace with your actual table name and column names
+
+//   try {
+//     // Retrieve values from column A and column B in the Google Sheet
+//     const response = await googleSheets.spreadsheets.values.get({
+//       auth,
+//       spreadsheetId,
+//       range: googleSheetRange,
+//     });
     
-    console.log(response.data.values)
+//     console.log(response.data.values)
 
-    const googleSheetValues = response.data.values;
+//     const googleSheetValues = response.data.values;
 
-    // Retrieve values from column C and column D in the database
-    const dbResult = await pool.query(dbQuery);
-    const dbValues = dbResult.rows;
-    const updates = [];
+//     // Retrieve values from column C and column D in the database
+//     const dbResult = await pool.query(dbQuery);
+//     const dbValues = dbResult.rows;
+//     const updates = [];
 
-    console.log(dbValues)
+//     console.log(dbValues)
   
-    for (let i = 1; i < googleSheetValues.length; i++) {
-      const googleSheetValueA = googleSheetValues[i][0].trim();
+//     for (let i = 1; i < googleSheetValues.length; i++) {
+//       const googleSheetValueA = googleSheetValues[i][0].trim();
   
-      const matchingValue = dbValues.find((dbValue) => {
-        const dbValueReference = dbValue.reference.trim();
-        console.log('dbValue:', dbValue);
-        console.log('dbValue.reference:', dbValueReference);
-        return dbValueReference === googleSheetValueA;
-      });
+//       const matchingValue = dbValues.find((dbValue) => {
+//         const dbValueReference = dbValue.reference.trim();
+//         console.log('dbValue:', dbValue);
+//         console.log('dbValue.reference:', dbValueReference);
+//         return dbValueReference === googleSheetValueA;
+//       });
     
 
-    // for (let i = 0; i < googleSheetValues.length; i++) {
-    //   const googleSheetValueA = googleSheetValues[i][0].trim();
-    //   console.log('googleSheetValueA:', googleSheetValueA);
+//     // for (let i = 0; i < googleSheetValues.length; i++) {
+//     //   const googleSheetValueA = googleSheetValues[i][0].trim();
+//     //   console.log('googleSheetValueA:', googleSheetValueA);
 
-    //   const matchingValue = dbValues.find((dbValue) => {
-    //     const dbValueReference = dbValue.reference.trim();
-    //     console.log('dbValue:', dbValue);
-    //     console.log('dbValue.reference:', dbValueReference);
-    //     console.log('comparison:', dbValueReference === googleSheetValueA);
-    //     console.log('trimmed comparison:', dbValueReference.localeCompare(googleSheetValueA, 'en', { sensitivity: 'base' }) === 0);
-    //     return dbValueReference === googleSheetValueA;
-    //   });
+//     //   const matchingValue = dbValues.find((dbValue) => {
+//     //     const dbValueReference = dbValue.reference.trim();
+//     //     console.log('dbValue:', dbValue);
+//     //     console.log('dbValue.reference:', dbValueReference);
+//     //     console.log('comparison:', dbValueReference === googleSheetValueA);
+//     //     console.log('trimmed comparison:', dbValueReference.localeCompare(googleSheetValueA, 'en', { sensitivity: 'base' }) === 0);
+//     //     return dbValueReference === googleSheetValueA;
+//     //   });
     
 
-      // for (let i = 0; i < googleSheetValues.length; i++) {
-      //   const googleSheetValueA = googleSheetValues[i][0].trim();
-      //   console.log('googleSheetValueA:', googleSheetValueA);
+//       // for (let i = 0; i < googleSheetValues.length; i++) {
+//       //   const googleSheetValueA = googleSheetValues[i][0].trim();
+//       //   console.log('googleSheetValueA:', googleSheetValueA);
     
-      //   const matchingValue = dbValues.find((dbValue) => {
-      //     const dbValueReference = dbValue.reference.trim();
-      //     console.log('dbValue:', dbValue);
-      //     console.log('dbValue.reference:', dbValueReference);
+//       //   const matchingValue = dbValues.find((dbValue) => {
+//       //     const dbValueReference = dbValue.reference.trim();
+//       //     console.log('dbValue:', dbValue);
+//       //     console.log('dbValue.reference:', dbValueReference);
     
-      //     // Compare the trimmed values character by character
-      //     let isMatch = true;
-      //     for (let j = 0; j < dbValueReference.length; j++) {
-      //       if (dbValueReference[j] !== googleSheetValueA[j]) {
-      //         console.log(`Mismatch at index ${j}: '${dbValueReference[j]}' vs '${googleSheetValueA[j]}'`);
-      //         isMatch = false;
-      //         break;
-      //       }
-      //     }
+//       //     // Compare the trimmed values character by character
+//       //     let isMatch = true;
+//       //     for (let j = 0; j < dbValueReference.length; j++) {
+//       //       if (dbValueReference[j] !== googleSheetValueA[j]) {
+//       //         console.log(`Mismatch at index ${j}: '${dbValueReference[j]}' vs '${googleSheetValueA[j]}'`);
+//       //         isMatch = false;
+//       //         break;
+//       //       }
+//       //     }
     
-      //     return isMatch;
-      //   });
-      // }
-      if (matchingValue) {
-        const sheetName = 'xero p1';
-        const columnLetter = 'H';
-        const rowIndex = i + 1;
+//       //     return isMatch;
+//       //   });
+//       // }
+//       if (matchingValue) {
+//         const sheetName = 'xero p1';
+//         const columnLetter = 'H';
+//         const rowIndex = i + 1;
       
-        const googleSheetRangeB = `xero p1!H${rowIndex}:H${rowIndex}`;
+//         const googleSheetRangeB = `xero p1!H${rowIndex}:H${rowIndex}`;
       
-        const dbValueD = matchingValue.matching_status;
+//         const dbValueD = matchingValue.matching_status;
       
-        // Prepare the update object
-        const update = {
-          range: googleSheetRangeB,
-          values: [[dbValueD]],
-        };
-        console.log(updates)
-        updates.push(update);
-      }
-    }
+//         // Prepare the update object
+//         const update = {
+//           range: googleSheetRangeB,
+//           values: [[dbValueD]],
+//         };
+//         console.log(updates)
+//         updates.push(update);
+//       }
+//     }
     
 
-    console.log(updates)
+//     console.log(updates)
 
-        if (updates.length > 0) {
-          const batchUpdateRequest = {
-            spreadsheetId,
-            resource: {
-              valueInputOption: 'RAW',
-              data: updates.map (update => ({
-                range: update.range,
-                values: update.values,
-              })),
-            },
-          };
+//         if (updates.length > 0) {
+//           const batchUpdateRequest = {
+//             spreadsheetId,
+//             resource: {
+//               valueInputOption: 'RAW',
+//               data: updates.map (update => ({
+//                 range: update.range,
+//                 values: update.values,
+//               })),
+//             },
+//           };
 
-          const batchUpdateResponse = await googleSheets.spreadsheets.values.batchUpdate(batchUpdateRequest);
+//           const batchUpdateResponse = await googleSheets.spreadsheets.values.batchUpdate(batchUpdateRequest);
 
-          console.log('Data updated successfully:', batchUpdateResponse.data);
-        } else {
-          console.log('No updates to perform.');
-        }
-      } catch (error) {
-        console.error('Error updating data:', error);
-      }
-});
+//           console.log('Data updated successfully:', batchUpdateResponse.data);
+//         } else {
+//           console.log('No updates to perform.');
+//         }
+//       } catch (error) {
+//         console.error('Error updating data:', error);
+//       }
+// });
 
 
 // res.render("index.ejs", { response: "Step 2: Data processing completed successfully." });
@@ -582,7 +590,3 @@ app.post("/step3", async (req, res) => {
 app.listen(process.env.PORT, () => {
   console.log(`Listening on port ${process.env.PORT}`);
 });
-
-
-
-// AJAX
